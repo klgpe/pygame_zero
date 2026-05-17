@@ -10,18 +10,19 @@ MAX_FALL_SPEED = 30
 vx = 0
 vy = 0
 
-platforms = [Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3"),Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3"),
-]
+#platformen in Listen
+platforms = [Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3"),Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3")]
 platform_pos_topleft = [(700,270),(900, -50), (1550,200),( 1900, 50),(300,220),(500, -10), (1500, -100),(1400, 300),(2000,220)]
 
+#animationen
 walk_frames = ["mage_walk1","mage_walk2",'mage_walk5',"mage_walk4"]
 idle_frames = ['mage_idle0','mage_idle1','mage_idle2','mage_idle3','mage_idle4']
+
 FRAME_INDEX_WALK = 0
 FRAME_INDEX_IDLE = 0
 SPEED = 8
 WALK_ANIMATION = SPEED
 IDLE_ANIMATION = SPEED +2
-
 
 #backround
 bg = Actor('background.png', topleft=(0,-300))
@@ -42,7 +43,7 @@ def platforminformation():
 def platformlist(list):
     platform_draw_setup = []
     
-    # 4 platformen pro stage
+    #5 platformen pro stage
     
     for platform_index in range(5):
         
@@ -74,9 +75,7 @@ def draw():
     ground.draw()
     
     for platform in platform_draw:
-        platform.draw() 
-
-    
+        platform.draw()    
 
 def update():
     global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED
