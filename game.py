@@ -1,22 +1,26 @@
 import pgzrun
 import random
+from pygame.math import Vector2
 
 WIDTH = 1398
 HEIGHT = 766
 MOVESPEED = 9
-JUMP_SPEED = 22
+JUMP_SPEED = 24
 GRAVITY = 0.8
 MAX_FALL_SPEED = 30
+BULLET_SPEED = 15
 vx = 0
 vy = 0
 
 #platformen in Listen
 platforms = [Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3"),Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3")]
-platform_pos_topleft = [(700,270),(900, -50), (1550,200),( 1900, 50),(300,220),(500, -10), (1500, -100),(1400, 300),(2000,220)]
+platform_pos_topleft = [(700,270),(900, -50), (1550,200),( 1900, 50),(300,220),(500, -10), (1500, -100),(1100, 300),(2000,220)]
 
 #animationen
 walk_frames = ["mage_walk1","mage_walk2",'mage_walk5',"mage_walk4"]
 idle_frames = ['mage_idle0','mage_idle1','mage_idle2','mage_idle3','mage_idle4']
+fire_ball_frames = ['fireball0','fireball1','fireball2']
+explotion_frames =['explosion0','explosion1','explosion2','explosion3','explosion4']
 
 FRAME_INDEX_WALK = 0
 FRAME_INDEX_IDLE = 0
@@ -32,6 +36,10 @@ ground = Actor('untergrund.png', topleft=(0,00))
 
 #character  
 mc = Actor('mage.png',midbottom=(704,623))
+
+#fire_bullet
+bullets = []
+explotions =[]
 
 mc.stand = True
 mc.on_g = True
@@ -57,13 +65,37 @@ def platformlist(list):
         platform_draw_setup.append(actor)
     
     return platform_draw_setup 
+
+
 #lsite mit echten platformen erstelen
 platform_draw = []
 platform_draw = platformlist(platforminformation())
 #startposition der platformen merken
+
 platform_start_y = []
 for platform in platform_draw:
     platform_start_y.append(platform.top)
+
+#feuerbälle schießen
+def on_mouse_down(pos):
+    bullet = Actor('fireball0.png')
+    bullet.pos = (mc.x+50,mc.y+30)
+    # 2d Vector erstellen zwischen 
+    direction = Vector2(pos) - Vector2(mc.x+50,mc.y+30)
+    #verktor mit länge 1 berechnen - feuer fliegt immer gleich schnell
+    if direction.length() != 0: 
+        direction = direction.normalize()
+    #daraus tatsächlich überquerte distanz in 1 tick berechen
+    bullet.velocity = direction * BULLET_SPEED
+    #zielposition zwischenspeichern
+    bullet.target = pos
+
+    #animation
+    bullet.frame_index = 0
+
+    bullets.append(bullet)
+
+
 
 
 def draw():
@@ -73,9 +105,15 @@ def draw():
     mc.draw()
     #zeichne untergrund
     ground.draw()
-    
+    #zeichne pülatformen
     for platform in platform_draw:
-        platform.draw()    
+        platform.draw()
+    #zeichne bullets
+    for bullet in bullets:
+        bullet.draw()
+    #zeichne explosionen
+    for explotion in explotions:
+        explotion.draw()  
 
 def update():
     global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED
@@ -97,6 +135,8 @@ def update():
         ground.x += vx
         for platform in platform_draw:
             platform.x += vx
+        for explotion in explotions:
+            explotion.x += vx
     
     #moving mc
     elif mc.x - vx > 0 and mc.x - vx  < 1390:
@@ -130,6 +170,8 @@ def update():
             bg.top -= differenz_y/2
             for platform in platform_draw:
                 platform.top -= differenz_y
+            for explotion in explotions:
+                explotion.y -= differenz_y
             mc.on_g = True
             vy = 0
             differenz_y = 0
@@ -143,6 +185,9 @@ def update():
             for platform in platform_draw:
                 platform.top = platform_start_y[count]
                 count +=1
+            if mc.on_g == False:
+                for explotion in explotions:
+                    explotion.y -= vy
             vy = 0 
             mc.on_g = True
         
@@ -151,6 +196,8 @@ def update():
             bg.top = bg.top -vy/2
             for platform in platform_draw:
                 platform.top -= vy
+            for explotion in explotions:
+                explotion.y -= vy
             mc.on_g = False
     
     # y-Bewegung nach oben ausführen
@@ -159,7 +206,25 @@ def update():
         ground.top -= vy
         for platform in platform_draw:
             platform.top -= vy
+        for explotion in explotions:
+            explotion.y -= vy
         mc.on_g = False
+
+    #bullet travel
+    for bullet in bullets:
+            bullet.x += bullet.velocity.x
+            bullet.y += bullet.velocity.y
+            #abstand zur zielposition prüfen
+            distance = Vector2(bullet.pos).distance_to(bullet.target)
+            if distance < BULLET_SPEED:
+                #explosion erstellen
+                explotion = Actor('explosion0.png')
+                explotion.pos = bullet.pos
+                explotions.append(explotion)
+                explotion.timer = 3
+                explotion.count = 0
+                #bullet entfernen
+                bullets.remove(bullet)
 
     #animation walking
     if mc.stand == False and mc.on_g == True :
@@ -184,6 +249,17 @@ def update():
     #animation springen
     if mc.on_g == False:
         mc.image = 'mage_jump1'
-    
+    #animation firebullet
+    for bullet in bullets:
+        bullet.frame_index = (bullet.frame_index + 1) % 3
+        bullet.image = fire_ball_frames[bullet.frame_index]
+    for explotion in explotions:
+        explotion.count = (explotion.count + 1) % 2
+        if explotion.count == 0:
+            explotion.image = explotion_frames[(4-explotion.timer)]
+            explotion.timer -= 1
+            if explotion.timer < 0:
+                explotions.remove(explotion)
+
     
 pgzrun.go()
