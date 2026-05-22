@@ -9,6 +9,7 @@ JUMP_SPEED = 24
 GRAVITY = 0.8
 MAX_FALL_SPEED = 30
 BULLET_SPEED = 15
+DIRECTION = 1
 vx = 0
 vy = 0
 
@@ -17,8 +18,8 @@ platforms = [Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("pla
 platform_pos_topleft = [(700,270),(900, -50), (1550,200),( 1900, 50),(300,220),(500, -10), (1500, -100),(1100, 300),(2000,220)]
 
 #animationen
-walk_frames = ["mage_walk1","mage_walk2",'mage_walk5',"mage_walk4"]
-idle_frames = ['mage_idle0','mage_idle1','mage_idle2','mage_idle3','mage_idle4']
+walk_frames = ["mage_walk1","mage_walk2",'mage_walk5',"mage_walk4", "mage_walk_reverse1","mage_walk_reverse2",'mage_walk_reverse5',"mage_walk_reverse4"]
+idle_frames = ['mage_idle0','mage_idle1','mage_idle2','mage_idle3','mage_idle4','mage_idle_reverse0','mage_idle_reverse1','mage_idle_reverse2','mage_idle_reverse3','mage_idle_reverse4']
 fire_ball_frames = ['fireball0','fireball1','fireball2']
 explotion_frames =['explosion0','explosion1','explosion2','explosion3','explosion4']
 
@@ -116,7 +117,7 @@ def draw():
         explotion.draw()  
 
 def update():
-    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED
+    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION
     #walking
     mc.stand = True
     
@@ -125,9 +126,12 @@ def update():
     if keyboard.a:
         vx = MOVESPEED
         mc.stand = False
+        DIRECTION = -1
+        
     elif keyboard.d:
         vx = -MOVESPEED
         mc.stand = False
+        DIRECTION = 1
     
     #moving bg
     if ground.x +vx  <= 1408 and ground.x + vx >= -10 and mc.x == 704:
@@ -232,13 +236,17 @@ def update():
         WALK_ANIMATION -= 1
         
         #fliping through images
-        if WALK_ANIMATION == 0:  
+        if WALK_ANIMATION == 0 and DIRECTION == 1:  
             WALK_ANIMATION = SPEED
             mc.image = walk_frames[FRAME_INDEX_WALK]
             FRAME_INDEX_WALK = (FRAME_INDEX_WALK + 1) % 4
+        elif WALK_ANIMATION == 0 and DIRECTION == -1:  
+            WALK_ANIMATION = SPEED
+            mc.image = walk_frames[FRAME_INDEX_WALK+4]
+            FRAME_INDEX_WALK = (FRAME_INDEX_WALK + 1) % 4
 
     #animation idle
-    if mc.on_g == True and mc.stand == True:
+    if mc.on_g == True and mc.stand == True and DIRECTION == 1:
         FRAME_INDEX_WALK = 0
         IDLE_ANIMATION -= 1
         #fliping through images
@@ -246,9 +254,19 @@ def update():
             IDLE_ANIMATION = SPEED+2
             mc.image = idle_frames[FRAME_INDEX_IDLE]
             FRAME_INDEX_IDLE = (FRAME_INDEX_IDLE + 1) % 5
+    elif mc.on_g == True and mc.stand == True and DIRECTION == -1:
+        FRAME_INDEX_WALK = 0
+        IDLE_ANIMATION -= 1
+        #fliping through images
+        if IDLE_ANIMATION == 0:  
+            IDLE_ANIMATION = SPEED+2
+            mc.image = idle_frames[FRAME_INDEX_IDLE+5]
+            FRAME_INDEX_IDLE = (FRAME_INDEX_IDLE + 1) % 5
     #animation springen
-    if mc.on_g == False:
+    if mc.on_g == False and DIRECTION == 1:
         mc.image = 'mage_jump1'
+    elif mc.on_g == False and DIRECTION == -1:
+        mc.image = 'mage_jump_reverse'
     #animation firebullet
     for bullet in bullets:
         bullet.frame_index = (bullet.frame_index + 1) % 3
