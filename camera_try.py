@@ -1,0 +1,289 @@
+import pgzrun
+import random
+from pygame.math import Vector2
+
+WIDTH = 1398
+HEIGHT = 766
+MOVESPEED = 9
+JUMP_SPEED = 24
+GRAVITY = 0.8
+MAX_FALL_SPEED = 30
+BULLET_SPEED = 15
+DIRECTION = 1
+vx = 0
+vy = 0
+
+#platformen in Listen
+platforms = [Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3"),Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3")]
+platform_pos_topleft = [(700,270),(900, -50), (1550,200),( 1900, 50),(300,220),(500, -10), (1500, -100),(1100, 300),(2000,220)]
+
+#animationen
+walk_frames = ["mage_walk1","mage_walk2",'mage_walk5',"mage_walk4", "mage_walk_reverse1","mage_walk_reverse2",'mage_walk_reverse5',"mage_walk_reverse4"]
+idle_frames = ['mage_idle0','mage_idle1','mage_idle2','mage_idle3','mage_idle4','mage_idle_reverse0','mage_idle_reverse1','mage_idle_reverse2','mage_idle_reverse3','mage_idle_reverse4']
+fire_ball_frames = ['fireball0','fireball1','fireball2']
+explotion_frames =['explosion0','explosion1','explosion2','explosion3','explosion4']
+
+FRAME_INDEX_WALK = 0
+FRAME_INDEX_IDLE = 0
+SPEED = 8
+WALK_ANIMATION = SPEED
+IDLE_ANIMATION = SPEED +2
+CAMERA_Y = 0
+CAMERA_X = 0
+
+#backround
+bg = Actor('background.png', topleft=(0,-300))
+
+#untergrund
+ground = Actor('untergrund.png', topleft=(0,00))
+
+#character  
+mc = Actor('mage.png',midbottom=(704,623))
+
+#fire_bullet
+bullets = []
+explotions =[]
+
+mc.stand = True
+mc.on_g = True
+
+#platformen und orte (indexe) auswählen
+def platforminformation():
+    return random.sample(range(8), 5 )+ random.sample(range(9), 5)
+#platformen und positionen werden anhand von indexen rausgesucht und die platformen dann in eine liste zusammen gefügt
+def platformlist(list):
+    platform_draw_setup = []
+    
+    #5 platformen pro stage
+    
+    for platform_index in range(5):
+        
+        #platform desing wird rausgesucht
+        actor = platforms[list[platform_index]]
+        
+        #platformposition wird zugeordnet
+        actor.topleft = platform_pos_topleft[list[platform_index + 5]]
+        
+        #platform wird an liste gefügt 
+        platform_draw_setup.append(actor)
+    
+    return platform_draw_setup 
+
+
+#liste mit echten platformen erstelen
+platform_draw = []
+platform_draw = platformlist(platforminformation())
+#startposition der platformen merken
+
+platform_start_y = []
+for platform in platform_draw:
+    platform_start_y.append(platform.top)
+
+#feuerbälle schießen
+def on_mouse_down(pos):
+    bullet = Actor('fireball0.png')
+    bullet.pos = (mc.x+50,mc.y+30)
+    # 2d Vector erstellen zwischen 
+    direction = Vector2(pos) - Vector2(mc.x+50,mc.y+30)
+    #verktor mit länge 1 berechnen - feuer fliegt immer gleich schnell
+    if direction.length() != 0: 
+        direction = direction.normalize()
+    #daraus tatsächlich überquerte distanz in 1 tick berechen
+    bullet.velocity = direction * BULLET_SPEED
+    #zielposition zwischenspeichern
+    bullet.target = pos
+
+    #animation
+    bullet.frame_index = 0
+
+    bullets.append(bullet)
+
+#kamera funktion
+def camera(pos):
+    x, y = pos
+    return (x - CAMERA_X, y - CAMERA_Y)
+
+
+def draw():
+    screen.clear()
+
+    # Hintergrund
+    screen.blit(
+        bg.image,
+        camera(bg.topleft)
+    )
+
+    # Boden
+    screen.blit(
+        ground.image,
+        camera(ground.topleft)
+    )
+
+    # Plattformen
+    for platform in platform_draw:
+        screen.blit(
+            platform.image,
+            camera(platform.topleft)
+        )
+
+    # Bullets
+    for bullet in bullets:
+        screen.blit(
+            bullet.image,
+            camera(bullet.topleft)
+        )
+
+    # Explosionen
+    for explotion in explotions:
+        screen.blit(
+            explotion.image,
+            camera(explotion.topleft)
+        )
+
+    # Spieler IMMER in Bildschirmmitte
+    mc_screen_pos = (WIDTH // 2, HEIGHT // 2)
+    screen.blit(mc.image, mc_screen_pos)
+
+def update():
+    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y
+    #walking
+    mc.stand = True
+    
+    vx = 0
+    
+    if keyboard.a:
+        vx = MOVESPEED
+        mc.stand = False
+        DIRECTION = -1
+        
+    elif keyboard.d:
+        vx = -MOVESPEED
+        mc.stand = False
+        DIRECTION = 1
+    
+    # Kamera bewegen
+    CAMERA_X -= vx
+    
+    #jumping
+    if mc.on_g == True and keyboard.space == True:
+        vy = -JUMP_SPEED
+    vy = min(vy + GRAVITY, MAX_FALL_SPEED)
+    
+    if vy > 0:
+        
+        # Zielposition des Charakters (in der Luft)
+        target = mc.bottom +vy -11
+        
+        # niedrigst mögliche Landeposition (Boden oder Plattform)
+        landing_bottom = 700
+        
+        over_platform = False
+        # Plattformkollisionen überprüfen
+        for platform in platform_draw:
+            if mc.right -85 > platform.left and mc.left + 93  < platform.right and mc.bottom <= platform.top + 40 and mc.bottom + vy >= platform.top:
+                mc.bottom = platform.top
+                vy = 0
+                mc.on_g = True
+        #wenn durch platform fallen würde, nur auf platform setzten
+      # if over_platform == True and differenz_y != vy:
+       #    ground.top -= differenz_y
+       #    bg.top -= differenz_y/2
+       #    for platform in platform_draw:
+       #        platform.top -= differenz_y
+        #   for explotion in explotions:
+        #       explotion.y -= differenz_y
+         #  mc.on_g = True
+        #   vy = 0
+         #  differenz_y = 0
+
+
+        #checken ob durch den boden fallen würde
+     #   elif target <= landing_bottom and over_platform == False:
+        #    ground.top = 0
+     #       bg.top = -300
+         #   count = 0
+         #   for platform in platform_draw:
+         #       platform.top = platform_start_y[count]
+         #       count +=1
+        #    if mc.on_g == False:
+        #        for explotion in explotions:
+        #            explotion.y -= vy
+       #     vy = 0 
+        #    mc.on_g = True
+        
+        else:
+            mc.bottom = target
+            mc.on_ground = False
+    
+    # y-Bewegung nach oben ausführen
+    else:
+        mc.y += vy
+        mc.on_ground = False
+
+    #bullet travel
+    for bullet in bullets:
+            bullet.x += bullet.velocity.x
+            bullet.y += bullet.velocity.y
+            #abstand zur zielposition prüfen
+            distance = Vector2(bullet.pos).distance_to(bullet.target)
+            if distance < BULLET_SPEED:
+                #explosion erstellen
+                explotion = Actor('explosion0.png')
+                explotion.pos = bullet.pos
+                explotions.append(explotion)
+                explotion.timer = 3
+                explotion.count = 0
+                #bullet entfernen
+                bullets.remove(bullet)
+
+    #animation walking
+    if mc.stand == False and mc.on_g == True :
+        FRAME_INDEX_IDLE = 0
+        WALK_ANIMATION -= 1
+        
+        #fliping through images
+        if WALK_ANIMATION == 0 and DIRECTION == 1:  
+            WALK_ANIMATION = SPEED
+            mc.image = walk_frames[FRAME_INDEX_WALK]
+            FRAME_INDEX_WALK = (FRAME_INDEX_WALK + 1) % 4
+        elif WALK_ANIMATION == 0 and DIRECTION == -1:  
+            WALK_ANIMATION = SPEED
+            mc.image = walk_frames[FRAME_INDEX_WALK+4]
+            FRAME_INDEX_WALK = (FRAME_INDEX_WALK + 1) % 4
+
+    #animation idle
+    if mc.on_g == True and mc.stand == True and DIRECTION == 1:
+        FRAME_INDEX_WALK = 0
+        IDLE_ANIMATION -= 1
+        #fliping through images
+        if IDLE_ANIMATION == 0:  
+            IDLE_ANIMATION = SPEED+2
+            mc.image = idle_frames[FRAME_INDEX_IDLE]
+            FRAME_INDEX_IDLE = (FRAME_INDEX_IDLE + 1) % 5
+    elif mc.on_g == True and mc.stand == True and DIRECTION == -1:
+        FRAME_INDEX_WALK = 0
+        IDLE_ANIMATION -= 1
+        #fliping through images
+        if IDLE_ANIMATION == 0:  
+            IDLE_ANIMATION = SPEED+2
+            mc.image = idle_frames[FRAME_INDEX_IDLE+5]
+            FRAME_INDEX_IDLE = (FRAME_INDEX_IDLE + 1) % 5
+    #animation springen
+    if mc.on_g == False and DIRECTION == 1:
+        mc.image = 'mage_jump1'
+    elif mc.on_g == False and DIRECTION == -1:
+        mc.image = 'mage_jump_reverse'
+    #animation firebullet
+    for bullet in bullets:
+        bullet.frame_index = (bullet.frame_index + 1) % 3
+        bullet.image = fire_ball_frames[bullet.frame_index]
+    for explotion in explotions:
+        explotion.count = (explotion.count + 1) % 2
+        if explotion.count == 0:
+            explotion.image = explotion_frames[(4-explotion.timer)]
+            explotion.timer -= 1
+            if explotion.timer < 0:
+                explotions.remove(explotion)
+
+    
+pgzrun.go()
