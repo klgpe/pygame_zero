@@ -28,8 +28,11 @@ FRAME_INDEX_IDLE = 0
 SPEED = 8
 WALK_ANIMATION = SPEED
 IDLE_ANIMATION = SPEED +2
-CAMERA_Y = 0
-CAMERA_X = 0
+
+#camera verschiebung
+def camera(pos):
+    x, y = pos
+    return (x - CAMERA_X, y - CAMERA_Y)
 
 #backround
 bg = Actor('background.png', topleft=(0,-300))
@@ -70,7 +73,7 @@ def platformlist(list):
     return platform_draw_setup 
 
 
-#liste mit echten platformen erstelen
+#lsite mit echten platformen erstelen
 platform_draw = []
 platform_draw = platformlist(platforminformation())
 #startposition der platformen merken
@@ -98,71 +101,46 @@ def on_mouse_down(pos):
 
     bullets.append(bullet)
 
-#kamera funktion
-def camera(pos):
-    x, y = pos
-    return (x - CAMERA_X, y - CAMERA_Y)
+
 
 
 def draw():
-    screen.clear()
-
-    # Hintergrund
-    screen.blit(
-        bg.image,
-        camera(bg.topleft)
-    )
-
-    # Boden
-    screen.blit(
-        ground.image,
-        camera(ground.topleft)
-    )
-
-    # Plattformen
+    # Zeichne Hintergrund
+    bg.draw()
+    #character malen
+    mc.draw()
+    #zeichne untergrund
+    ground.draw()
+    #zeichne pülatformen
     for platform in platform_draw:
-        screen.blit(
-            platform.image,
-            camera(platform.topleft)
-        )
-
-    # Bullets
+        platform.draw()
+    #zeichne bullets
     for bullet in bullets:
-        screen.blit(
-            bullet.image,
-            camera(bullet.topleft)
-        )
-
-    # Explosionen
+        bullet.draw()
+    #zeichne explosionen
     for explotion in explotions:
-        screen.blit(
-            explotion.image,
-            camera(explotion.topleft)
-        )
-
-    # Spieler IMMER in Bildschirmmitte
-    mc_screen_pos = (WIDTH // 2, HEIGHT // 2)
-    screen.blit(mc.image, mc_screen_pos)
+        explotion.draw()  
 
 def update():
-    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y
+    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION
     #walking
     mc.stand = True
     
     vx = 0
     
     if keyboard.a:
-        vx = MOVESPEED
+        vx = -MOVESPEED
         mc.stand = False
         DIRECTION = -1
         
     elif keyboard.d:
-        vx = -MOVESPEED
+        vx = +MOVESPEED
         mc.stand = False
         DIRECTION = 1
     
-    # Kamera bewegen
-    CAMERA_X -= vx
+    #moving mc
+    if mc.x + vx > 0 and mc.x + vx  < 2290:
+        mc.x += vx
     
     #jumping
     if mc.on_g == True and keyboard.space == True:
@@ -172,53 +150,39 @@ def update():
     if vy > 0:
         
         # Zielposition des Charakters (in der Luft)
-        target = mc.bottom +vy -11
+        target = mc.bottom + vy
         
         # niedrigst mögliche Landeposition (Boden oder Plattform)
-        landing_bottom = 700
+        landing_bottom = 620
         
-        over_platform = False
+        
         # Plattformkollisionen überprüfen
         for platform in platform_draw:
-            if mc.right -85 > platform.left and mc.left + 93  < platform.right and mc.bottom <= platform.top + 40 and mc.bottom + vy >= platform.top:
-                mc.bottom = platform.top
-                vy = 0
-                mc.on_g = True
-        #wenn durch platform fallen würde, nur auf platform setzten
-      # if over_platform == True and differenz_y != vy:
-       #    ground.top -= differenz_y
-       #    bg.top -= differenz_y/2
-       #    for platform in platform_draw:
-       #        platform.top -= differenz_y
-        #   for explotion in explotions:
-        #       explotion.y -= differenz_y
-         #  mc.on_g = True
-        #   vy = 0
-         #  differenz_y = 0
+
+            above = (mc.right - 85 > platform.left and mc.left + 93 < platform.right)
+
+            # Spieler war vorher unter der Plattform
+            falling_onto_platform = (mc.bottom <= platform.top + 70 and target >= platform.top+70)
+
+            if above and falling_onto_platform:
+                landing_bottom = platform.top +70
+                break
 
 
         #checken ob durch den boden fallen würde
-     #   elif target <= landing_bottom and over_platform == False:
-        #    ground.top = 0
-     #       bg.top = -300
-         #   count = 0
-         #   for platform in platform_draw:
-         #       platform.top = platform_start_y[count]
-         #       count +=1
-        #    if mc.on_g == False:
-        #        for explotion in explotions:
-        #            explotion.y -= vy
-       #     vy = 0 
-        #    mc.on_g = True
+        if target >= landing_bottom:
+            mc.bottom = landing_bottom
+            vy = 0 
+            mc.on_g = True
         
         else:
-            mc.bottom = target
-            mc.on_ground = False
+            mc.y = mc.y + vy
+            mc.on_g = False
     
     # y-Bewegung nach oben ausführen
     else:
         mc.y += vy
-        mc.on_ground = False
+        mc.on_g = False
 
     #bullet travel
     for bullet in bullets:
