@@ -8,10 +8,16 @@ MOVESPEED = 9
 JUMP_SPEED = 24
 GRAVITY = 0.8
 MAX_FALL_SPEED = 30
-BULLET_SPEED = 15
+BULLET_SPEED = 30
 DIRECTION = 1
 vx = 0
 vy = 0
+CAMERA_X =0
+CAMERA_Y =0
+
+#gegner
+enemies=[]
+
 
 #platformen in Listen
 platforms = [Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3"),Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3")]
@@ -78,6 +84,22 @@ platform_draw = []
 platform_draw = platformlist(platforminformation())
 #startposition der platformen merken
 
+#sandwurm gegner
+def sandwurm(anzahl):
+    for i in range(anzahl):
+
+        x = random.randint(0, 4)
+
+        worm = Actor("sandwurm_up5")
+        worm.pos = (platform_draw[x].x, platform_draw[x].top + 22)
+
+        worm.type = "sandwurm"
+        worm.timer = 0
+        worm.hp = 3
+        enemies.append(worm)
+#sandwürmer spawnen
+sandwurm(1)
+
 platform_start_y = []
 for platform in platform_draw:
     platform_start_y.append(platform.top)
@@ -87,14 +109,16 @@ def on_mouse_down(pos):
     bullet = Actor('fireball0.png')
     bullet.pos = (mc.x+50,mc.y+30)
     # 2d Vector erstellen zwischen 
-    direction = Vector2(pos) - Vector2(mc.x+50,mc.y+30)
+    world_mouse = Vector2(pos[0] + CAMERA_X,
+                      pos[1] + CAMERA_Y)
+    direction = world_mouse - Vector2(mc.x + 50,mc.y + 30)
     #verktor mit länge 1 berechnen - feuer fliegt immer gleich schnell
     if direction.length() != 0: 
         direction = direction.normalize()
     #daraus tatsächlich überquerte distanz in 1 tick berechen
     bullet.velocity = direction * BULLET_SPEED
     #zielposition zwischenspeichern
-    bullet.target = pos
+    bullet.target = world_mouse
 
     #animation
     bullet.frame_index = 0
@@ -102,27 +126,41 @@ def on_mouse_down(pos):
     bullets.append(bullet)
 
 
-
+#kamera funktion
+def camera(pos):
+    x, y = pos
+    return (x - CAMERA_X, y - CAMERA_Y)
 
 def draw():
-    # Zeichne Hintergrund
-    bg.draw()
-    #character malen
-    mc.draw()
-    #zeichne untergrund
-    ground.draw()
-    #zeichne pülatformen
+ # Hintergrund
+    screen.blit(bg.image,(bg.left - CAMERA_X * 0.5, bg.top - CAMERA_Y * 0.5))
+
+    # Boden
+    screen.blit(ground.image,camera(ground.topleft))
+
+    # Plattformen
     for platform in platform_draw:
-        platform.draw()
-    #zeichne bullets
+        screen.blit(platform.image,camera(platform.topleft))
+
+    # Bullets
     for bullet in bullets:
-        bullet.draw()
-    #zeichne explosionen
+        screen.blit(bullet.image,camera(bullet.topleft))
+
+    # Spieler
+    screen.blit(mc.image, camera(mc.topleft))  
+
+    #gegner
+    for enemy in enemies:
+        screen.blit(enemy.image, camera(enemy.topleft))
+    
+    # Explosionen
     for explotion in explotions:
-        explotion.draw()  
+        screen.blit(explotion.image,camera(explotion.topleft))
+
+    
 
 def update():
-    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION
+    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y
     #walking
     mc.stand = True
     
@@ -139,7 +177,7 @@ def update():
         DIRECTION = 1
     
     #moving mc
-    if mc.x + vx > 0 and mc.x + vx  < 2290:
+    if mc.x + vx > 60 and mc.x + vx  < 2740:
         mc.x += vx
     
     #jumping
@@ -183,6 +221,20 @@ def update():
     else:
         mc.y += vy
         mc.on_g = False
+    CAMERA_X = mc.x - 704
+    CAMERA_Y = mc.y - 500
+    #kamera begrenzen
+    CAMERA_X = max(0, CAMERA_X)
+    CAMERA_X = min(CAMERA_X, 2816 - WIDTH)
+
+    #gegner attackieren
+    for enemy in enemies:
+        if enemy.type == 'sandwurm':
+            enemy.timer+=1
+            if enemy.timer >= 140 and mc.on_g == True:
+                enemy.pos = (mc.x, mc.y + 104)
+                enemy.timer = 0
+
 
     #bullet travel
     for bullet in bullets:
