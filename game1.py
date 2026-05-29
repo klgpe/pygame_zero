@@ -95,7 +95,7 @@ def sandwurm(anzahl):
 
         worm.type = "sandwurm"
         worm.timer = 0
-        worm.hp = 3
+        worm.hp = 20
         enemies.append(worm)
 #sandwürmer spawnen
 sandwurm(1)
@@ -191,7 +191,7 @@ def update():
         target = mc.bottom + vy
         
         # niedrigst mögliche Landeposition (Boden oder Plattform)
-        landing_bottom = 620
+        landing_bottom = 623
         
         
         # Plattformkollisionen überprüfen
@@ -229,8 +229,11 @@ def update():
 
     #gegner attackieren
     for enemy in enemies:
+        if enemy.hp == 0:
+            enemies.remove(enemy)
         if enemy.type == 'sandwurm':
             enemy.timer+=1
+           # if enemy.timer ==
             if enemy.timer >= 140 and mc.on_g == True:
                 enemy.pos = (mc.x, mc.y + 104)
                 enemy.timer = 0
@@ -293,6 +296,10 @@ def update():
     for bullet in bullets:
         bullet.frame_index = (bullet.frame_index + 1) % 3
         bullet.image = fire_ball_frames[bullet.frame_index]
+        for enemy in enemies[:]:
+                if bullet.colliderect(enemy):
+                    enemy.hp -= 1
+
     for explotion in explotions:
         explotion.count = (explotion.count + 1) % 2
         if explotion.count == 0:
@@ -300,6 +307,10 @@ def update():
             explotion.timer -= 1
             if explotion.timer < 0:
                 explotions.remove(explotion)
+        for enemy in enemies[:]:
+                if explotion.colliderect(enemy):
+                    enemy.hp -= 1
+                    
 
     
 pgzrun.go()
