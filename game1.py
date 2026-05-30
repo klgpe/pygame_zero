@@ -1,5 +1,7 @@
 import pgzrun
 import random
+import pygame
+from pygame import Rect
 from pygame.math import Vector2
 
 WIDTH = 1398
@@ -15,6 +17,11 @@ vy = 0
 CAMERA_X =0
 CAMERA_Y =0
 
+#rotes overlay bei viel damage:
+red_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+alpha = 80
+red_overlay.fill((255, 0, 0, alpha))  # Rot, Alpha=80
+
 #gegner
 enemies=[]
 
@@ -28,6 +35,7 @@ walk_frames = ["mage_walk1","mage_walk2",'mage_walk5',"mage_walk4", "mage_walk_r
 idle_frames = ['mage_idle0','mage_idle1','mage_idle2','mage_idle3','mage_idle4','mage_idle_reverse0','mage_idle_reverse1','mage_idle_reverse2','mage_idle_reverse3','mage_idle_reverse4']
 fire_ball_frames = ['fireball0','fireball1','fireball2']
 explotion_frames =['explosion0','explosion1','explosion2','explosion3','explosion4']
+sandwurm_frames = ['sandwurm_up0','sandwurm_up1','sandwurm_up2','sandwurm_up3','sandwurm_up4','sandwurm_up5','sandwurm_up6','sandwurm_down0','sandwurm_down1','sandwurm_down2','sandwurm_down3','sandwurm_down4','sandwurm_down5','sandwurm_dowm6']
 
 FRAME_INDEX_WALK = 0
 FRAME_INDEX_IDLE = 0
@@ -48,6 +56,9 @@ ground = Actor('untergrund.png', topleft=(0,00))
 
 #character  
 mc = Actor('mage.png',midbottom=(704,623))
+mc.max_hp = 100
+mc.hp = 100
+
 
 #fire_bullet
 bullets = []
@@ -78,11 +89,17 @@ def platformlist(list):
     
     return platform_draw_setup 
 
+def launch():
+    global platform_draw, enemies
+    #lsite mit echten platformen erstelen
+    platform_draw = []
+    platform_draw = platformlist(platforminformation())
+    #startposition der platformen merken
+    #sandwürmer spawnen
+    
+    sandwurm(random.randint(1,10))
 
-#lsite mit echten platformen erstelen
-platform_draw = []
-platform_draw = platformlist(platforminformation())
-#startposition der platformen merken
+
 
 #sandwurm gegner
 def sandwurm(anzahl):
@@ -90,15 +107,20 @@ def sandwurm(anzahl):
 
         x = random.randint(0, 4)
 
-        worm = Actor("sandwurm_up5")
-        worm.pos = (platform_draw[x].x, platform_draw[x].top + 22)
+        worm = Actor("sandwurm_up6")
+        worm.pos = (platform_draw[x].x, platform_draw[x].top )
 
         worm.type = "sandwurm"
-        worm.timer = 0
+        worm.frame_index = 0
+        worm.timer = random.randint(0, 100)
         worm.hp = 20
+        worm.state = 'empty'
+        worm.animationdelay =0
+        worm.damage = False
+        
         enemies.append(worm)
-#sandwürmer spawnen
-sandwurm(1)
+
+launch()
 
 platform_start_y = []
 for platform in platform_draw:
@@ -156,6 +178,25 @@ def draw():
     # Explosionen
     for explotion in explotions:
         screen.blit(explotion.image,camera(explotion.topleft))
+    
+    # Hintergrund
+    screen.draw.filled_rect(Rect((20, 20), (300, 30)), (60, 60, 60))
+
+    # Aktuelle HP
+    breite = 300 * mc.hp / mc.max_hp
+    screen.draw.filled_rect(Rect((20, 20), (breite, 30)), (255, 0, 0))
+
+    # Rahmen
+    pygame.draw.rect(screen.surface,(255, 255, 255),Rect((20, 20), (300, 30)),6  )
+    #rotes overlay
+    if mc.damage == True:
+        alpha = random.randint(70, 90)
+        red_overlay.fill((255, 0, 0, alpha))
+        screen.surface.blit(red_overlay, (0, 0))
+    if not mc.damage == True:
+        red_overlay.fill((255, 0, 0, 0))
+        screen.surface.blit(red_overlay, (0, 0))
+    
 
     
 
@@ -227,16 +268,33 @@ def update():
     CAMERA_X = max(0, CAMERA_X)
     CAMERA_X = min(CAMERA_X, 2816 - WIDTH)
 
+    mc.damage = False
+
     #gegner attackieren
-    for enemy in enemies:
-        if enemy.hp == 0:
+    for enemy in enemies[:]:
+        mc.hitbox = Rect(mc.left + 100, mc.top + 141, mc.width - 100, mc.height - 30)
+        enemy.damage = False
+        if enemy.hp <= 0:
             enemies.remove(enemy)
         if enemy.type == 'sandwurm':
-            enemy.timer+=1
-           # if enemy.timer ==
+            if mc.on_g == True: 
+                enemy.timer+=1
+            #animation
+            if enemy.timer == 14 and enemy.state == 'up':
+                enemy.state = 'empty'
+
+            if enemy.timer == 126 and enemy.state == 'empty':
+                enemy.state = 'down'
+
+           # attack
             if enemy.timer >= 140 and mc.on_g == True:
-                enemy.pos = (mc.x, mc.y + 104)
+                enemy.pos = (mc.x, mc.y + 83)
+                enemy.state = 'up'
                 enemy.timer = 0
+            enemy.hitbox = Rect(enemy.left + 20,enemy.top + 50,enemy.width - 40,enemy.height)
+            if enemy.hitbox.colliderect(mc.hitbox) and enemy.timer >= 20:
+                mc.hp -= 0.3
+                mc.damage = True
 
 
     #bullet travel
@@ -254,6 +312,9 @@ def update():
                 explotion.count = 0
                 #bullet entfernen
                 bullets.remove(bullet)
+    #neues level
+    if not enemies:
+        launch()
 
     #animation walking
     if mc.stand == False and mc.on_g == True :
@@ -299,6 +360,7 @@ def update():
         for enemy in enemies[:]:
                 if bullet.colliderect(enemy):
                     enemy.hp -= 1
+                    enemy.damage = True
 
     for explotion in explotions:
         explotion.count = (explotion.count + 1) % 2
@@ -308,9 +370,26 @@ def update():
             if explotion.timer < 0:
                 explotions.remove(explotion)
         for enemy in enemies[:]:
+
                 if explotion.colliderect(enemy):
                     enemy.hp -= 1
-                    
+                    enemy.damage = True
+    #animation sandwurm               
+    for enemy in enemies[:]:
+        if enemy.type == 'sandwurm':
+            if mc.on_g == True:
+                enemy.animationdelay = (enemy.animationdelay + 1)%2
+                if enemy.state == 'up' and enemy.animationdelay == 0:
+                    enemy.image = sandwurm_frames[enemy.frame_index]
+                    enemy.frame_index = (enemy.frame_index + 1) % 7
+                elif enemy.state == 'down' and enemy.animationdelay == 0:
+                    enemy.image = sandwurm_frames[enemy.frame_index+6]
+                    enemy.frame_index = (enemy.frame_index + 1) % 7
+                elif enemy.damage == False and enemy.state == 'empty':
+                    enemy.image = 'sandwurm_up6.png'
+            if enemy.damage == True:
+                enemy.image = 'sanwurm_damage.png'
+            
 
-    
+            
 pgzrun.go()
