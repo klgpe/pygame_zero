@@ -1,6 +1,7 @@
 import pgzrun
 import random
 import pygame
+import math
 from pygame import Rect
 from pygame.math import Vector2
 
@@ -16,6 +17,7 @@ vx = 0
 vy = 0
 CAMERA_X =0
 CAMERA_Y =0
+ATTACKCOOLDOWN_SANDWORMS = 200
 
 #rotes overlay bei viel damage:
 red_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -24,6 +26,9 @@ red_overlay.fill((255, 0, 0, alpha))  # Rot, Alpha=80
 
 #gegner
 enemies=[]
+
+#enemy bullets#
+enemy_bullets=[]
 
 
 #platformen in Listen
@@ -36,6 +41,7 @@ idle_frames = ['mage_idle0','mage_idle1','mage_idle2','mage_idle3','mage_idle4',
 fire_ball_frames = ['fireball0','fireball1','fireball2']
 explotion_frames =['explosion0','explosion1','explosion2','explosion3','explosion4']
 sandwurm_frames = ['sandwurm_up0','sandwurm_up1','sandwurm_up2','sandwurm_up3','sandwurm_up4','sandwurm_up5','sandwurm_up6','sandwurm_down0','sandwurm_down1','sandwurm_down2','sandwurm_down3','sandwurm_down4','sandwurm_down5','sandwurm_dowm6']
+fly_frames =['fly_left0','fly_left1','fly_left2','fly_left3','fly_left4','fly_right0','fly_right1','fly_right2','fly_right3','fly_right4']
 
 FRAME_INDEX_WALK = 0
 FRAME_INDEX_IDLE = 0
@@ -97,8 +103,20 @@ def launch():
     #startposition der platformen merken
     #sandwürmer spawnen
     
-    sandwurm(random.randint(1,10))
+    sandwurm(random.randint(1,5))
+    fly(random.randint(1,5))
 
+def fly(anzahl):
+    for i in range(anzahl):
+        fly = Actor('fly_left0')
+        fly.type = 'fly'
+        fly.pos = 1500,500
+        fly.hp = 10
+        fly.speed =4
+        fly.direction = 1
+        fly.timer = random.randint(0,500) #timer
+        fly.angle = random.uniform(0,360)
+        enemies.append(fly)
 
 
 #sandwurm gegner
@@ -147,6 +165,20 @@ def on_mouse_down(pos):
 
     bullets.append(bullet)
 
+#enemy_shoot
+def enemy_shoot(pos):
+        bullet = Actor('enemy_bullet.png')
+        bullet.pos = pos
+
+        direction = Vector2(mc.x, mc.y+50) - Vector2(pos)
+
+        if direction.length() != 0:
+            direction = direction.normalize()
+
+        bullet.velocity = direction * 8
+
+        enemy_bullets.append(bullet)
+
 
 #kamera funktion
 def camera(pos):
@@ -179,6 +211,10 @@ def draw():
     for explotion in explotions:
         screen.blit(explotion.image,camera(explotion.topleft))
     
+    #bullet from enemy
+    for bullet in enemy_bullets:
+        screen.blit(bullet.image,camera(bullet.topleft))
+
     # Hintergrund
     screen.draw.filled_rect(Rect((20, 20), (300, 30)), (60, 60, 60))
 
@@ -201,7 +237,7 @@ def draw():
     
 
 def update():
-    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y
+    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y, ATTACKCOOLDOWN_SANDWORMS
     #walking
     mc.stand = True
     
@@ -283,20 +319,55 @@ def update():
             if enemy.timer == 14 and enemy.state == 'up':
                 enemy.state = 'empty'
 
-            if enemy.timer == 126 and enemy.state == 'empty':
+            if enemy.timer == ATTACKCOOLDOWN_SANDWORMS-14 and enemy.state == 'empty':
                 enemy.state = 'down'
 
            # attack
-            if enemy.timer >= 140 and mc.on_g == True:
+            if enemy.timer >= ATTACKCOOLDOWN_SANDWORMS and mc.on_g == True:
                 enemy.pos = (mc.x, mc.y + 83)
                 enemy.state = 'up'
                 enemy.timer = 0
             enemy.hitbox = Rect(enemy.left + 20,enemy.top + 50,enemy.width - 40,enemy.height)
-            if enemy.hitbox.colliderect(mc.hitbox) and enemy.timer >= 20:
-                mc.hp -= 0.3
+            if enemy.hitbox.colliderect(mc.hitbox) and enemy.timer >= 20 and mc.damage == False:
+                mc.hp -= 1
                 mc.damage = True
 
+        if enemy.type == 'fly':
+            center = Vector2(1200, 270)
+            enemy.timer += 1
 
+            distance_to_player = Vector2(enemy.pos).distance_to(mc.pos)
+            #fly movement
+            if distance_to_player < 500:
+                # vor dem Spieler fliehen
+                direction = Vector2(enemy.pos) - Vector2(mc.pos)
+
+                if direction.length() != 0:
+                    direction = direction.normalize()
+
+                enemy.x += direction.x * enemy.speed*0.7
+                enemy.y=min(enemy.y + direction.y * enemy.speed*0.8, 623) 
+
+            else:
+                # Kreisflug
+                enemy.angle += 0.005
+
+                target = Vector2(center.x + 2000 * math.cos(enemy.angle),center.y + 500 * math.sin(enemy.angle))
+
+                direction = target - Vector2(enemy.pos)
+
+                if direction.length() > 0:
+                    direction = direction.normalize()
+                    enemy.x += direction.x * enemy.speed*0.5
+                    enemy.y = min(enemy.y + direction.y * enemy.speed*0.5, 630)
+
+            if enemy.timer >= 300:
+                enemy.timer = 0
+                enemy_shoot(enemy.pos)
+            if direction.x > 0:
+                enemy.direction = 1
+            else:
+                enemy.direction = -1
     #bullet travel
     for bullet in bullets:
             bullet.x += bullet.velocity.x
@@ -315,6 +386,13 @@ def update():
     #neues level
     if not enemies:
         launch()
+
+    #enemy bullets
+    for bullet in enemy_bullets[:]:
+        bullet.x += bullet.velocity.x
+        bullet.y += bullet.velocity.y
+        if bullet.y > bg.bottom or bullet.y < bg.top or bullet.x < bg.left or bullet.x > bg.right:
+            enemy_bullets.remove(bullet)
 
     #animation walking
     if mc.stand == False and mc.on_g == True :
@@ -361,6 +439,16 @@ def update():
                 if bullet.colliderect(enemy):
                     enemy.hp -= 1
                     enemy.damage = True
+    
+    #damage enemybullets
+    for bullet in enemy_bullets[:]:
+        mc.hitbox = Rect(mc.left + 100, mc.top + 141, mc.width - 200, mc.height - 30)
+        bullet.hitbox = Rect(bullet.left+10, bullet.top+10, bullet.width-10, bullet.height-10)
+        if bullet.image == 'enemy_bullet.png':
+            if bullet.hitbox.colliderect(mc.hitbox):
+                mc.hp -= 2
+                mc.damage = True
+                enemy_bullets.remove(bullet)
 
     for explotion in explotions:
         explotion.count = (explotion.count + 1) % 2
@@ -374,6 +462,7 @@ def update():
                 if explotion.colliderect(enemy):
                     enemy.hp -= 1
                     enemy.damage = True
+    
     #animation sandwurm               
     for enemy in enemies[:]:
         if enemy.type == 'sandwurm':
@@ -389,6 +478,16 @@ def update():
                     enemy.image = 'sandwurm_up6.png'
             if enemy.damage == True:
                 enemy.image = 'sanwurm_damage.png'
+        if enemy.type =='fly':
+            if enemy.direction == 1:
+                enemy.image = fly_frames[round((enemy.timer%32)/8)+5]
+            if enemy.direction == -1:
+                enemy.image = fly_frames[round((enemy.timer%32)/8)]
+            
+    
+                
+                
+
             
 
             
