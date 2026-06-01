@@ -18,6 +18,12 @@ vy = 0
 CAMERA_X =0
 CAMERA_Y =0
 ATTACKCOOLDOWN_SANDWORMS = 200
+current_layer = 0
+map_on = True
+mapdeviation=0
+mapdeviationx=-3000
+rows = 14
+columns = 5
 
 #rotes overlay bei viel damage:
 red_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -30,10 +36,57 @@ enemies=[]
 #enemy bullets#
 enemy_bullets=[]
 
+#map positionen
+positions =[250,500,750,1000,1250,1875*2,1750*2,1625*2,1500*2,1375*2,1250*2,1125*2,1000*2,875*2,750*2,625*2,500*2,375*2,250*2]
+path = []
+path_information = []
+drawn_positions = []
+special_locations = random.sample(range(1,14), 5)
+location_shops = special_locations[:3]
+location_elites = special_locations[3:]
+
+start = random.randint(0, columns-1)
+
+for row in range(rows):
+    path_information.append((start,row))
+    start = random.randint(start-1, start +1)
+    if start>4:
+        start = 4
+    if start<0:
+        start = 0
+
+for i in range(rows):
+    path.append((positions[path_information[i][0]],positions[path_information[i][1]+5]))
+path.append((700,250))
+map = Actor('map.png')
+
+for positions in path:
+    if path.index(positions) in location_shops:
+        location = Actor('shop.png')
+        location.type = 'shop'
+        location.layer = path.index(positions)
+    elif path.index(positions) in location_elites:
+        location = Actor('elite.png')
+        location.type = 'elite'
+        location.layer = path.index(positions)
+    elif path.index(positions) == 14:
+        location = Actor('boss.png')
+        location.type = 'boss'
+        location.layer = path.index(positions)
+    else:
+        location = Actor('enemy.png')
+        location.type = 'enemy'
+        location.layer = path.index(positions)
+    location.pos = positions
+    drawn_positions.append(location)
+
+
+
 
 #platformen in Listen
 platforms = [Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3"),Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("platform3")]
 platform_pos_topleft = [(700,270),(900, -50), (1550,200),( 1900, 50),(300,220),(500, -10), (1500, -100),(1100, 300),(2000,220)]
+platform_draw = []
 
 #animationen
 walk_frames = ["mage_walk1","mage_walk2",'mage_walk5',"mage_walk4", "mage_walk_reverse1","mage_walk_reverse2",'mage_walk_reverse5',"mage_walk_reverse4"]
@@ -44,7 +97,7 @@ sandwurm_frames = ['sandwurm_up0','sandwurm_up1','sandwurm_up2','sandwurm_up3','
 fly_frames =['fly_left0','fly_left1','fly_left2','fly_left3','fly_left4','fly_right0','fly_right1','fly_right2','fly_right3','fly_right4']
 
 FRAME_INDEX_WALK = 0
-FRAME_INDEX_IDLE = 0
+FRAME_INDEX_IDLE = 0 
 SPEED = 8
 WALK_ANIMATION = SPEED
 IDLE_ANIMATION = SPEED +2
@@ -95,16 +148,21 @@ def platformlist(list):
     
     return platform_draw_setup 
 
-def launch():
-    global platform_draw, enemies
-    #lsite mit echten platformen erstelen
-    platform_draw = []
-    platform_draw = platformlist(platforminformation())
-    #startposition der platformen merken
-    #sandwürmer spawnen
+def launch(type):
     
-    sandwurm(random.randint(1,5))
-    fly(random.randint(1,5))
+    global platform_draw, enemies, current_layer
+    if type == 'enemy':
+        #lsite mit echten platformen erstelen
+        platform_draw = []
+        platform_draw = platformlist(platforminformation())
+        #startposition der platformen merken
+        #sandwürmer spawnen
+        current_layer += 1
+        sandwurm(random.randint(max(2,current_layer-7),max(1,current_layer+2)))
+        fly(random.randint(max(2,current_layer-7),max(0,current_layer+4)))
+    
+    
+    
 
 def fly(anzahl):
     for i in range(anzahl):
@@ -138,32 +196,49 @@ def sandwurm(anzahl):
         
         enemies.append(worm)
 
-launch()
 
-platform_start_y = []
-for platform in platform_draw:
-    platform_start_y.append(platform.top)
+
+
 
 #feuerbälle schießen
 def on_mouse_down(pos):
-    bullet = Actor('fireball0.png')
-    bullet.pos = (mc.x+50,mc.y+30)
-    # 2d Vector erstellen zwischen 
-    world_mouse = Vector2(pos[0] + CAMERA_X,
-                      pos[1] + CAMERA_Y)
-    direction = world_mouse - Vector2(mc.x + 50,mc.y + 30)
-    #verktor mit länge 1 berechnen - feuer fliegt immer gleich schnell
-    if direction.length() != 0: 
-        direction = direction.normalize()
-    #daraus tatsächlich überquerte distanz in 1 tick berechen
-    bullet.velocity = direction * BULLET_SPEED
-    #zielposition zwischenspeichern
-    bullet.target = world_mouse
+    global map_on
+    if map_on == True:
+        for positions in drawn_positions:
+            hitbox = Rect(positions.left, positions.top -3200 +250*max(0,current_layer)+mapdeviation, positions.width, positions.height)
+            
+            if hitbox.collidepoint(pos):
+                print("geklickt:", positions.type, positions.layer)
+                if positions.type == 'shop'and positions.layer == current_layer:
+                    launch('shop')
+                elif positions.type == 'elite'and positions.layer == current_layer :
+                    launch('elite')
+                elif positions.type == 'enemy'and positions.layer == current_layer:
+                    launch('enemy')
+                elif positions.type == 'boss' and positions.layer == current_layer:
+                    launch('boss')
+                map_on = False
+                return
+                
+    else:
+        bullet = Actor('fireball0.png')
+        bullet.pos = (mc.x+50,mc.y+30)
+        # 2d Vector erstellen zwischen 
+        world_mouse = Vector2(pos[0] + CAMERA_X,
+                          pos[1] + CAMERA_Y)
+        direction = world_mouse - Vector2(mc.x + 50,mc.y + 30)
+        #verktor mit länge 1 berechnen - feuer fliegt immer gleich schnell
+        if direction.length() != 0: 
+            direction = direction.normalize()
+        #daraus tatsächlich überquerte distanz in 1 tick berechen
+        bullet.velocity = direction * BULLET_SPEED
+        #zielposition zwischenspeichern
+        bullet.target = world_mouse
 
-    #animation
-    bullet.frame_index = 0
+        #animation
+        bullet.frame_index = 0
 
-    bullets.append(bullet)
+        bullets.append(bullet)
 
 #enemy_shoot
 def enemy_shoot(pos):
@@ -179,6 +254,12 @@ def enemy_shoot(pos):
 
         enemy_bullets.append(bullet)
 
+def map1():
+    global map_on , mapdeviationx, current_layer   
+    mapdeviationx = 0
+    map.bottom = HEIGHT +250*max(0,current_layer)
+    map.x = WIDTH/2
+    map_on = True
 
 #kamera funktion
 def camera(pos):
@@ -186,6 +267,7 @@ def camera(pos):
     return (x - CAMERA_X, y - CAMERA_Y)
 
 def draw():
+    global map_on , mapdeviationx, current_layer 
  # Hintergrund
     screen.blit(bg.image,(bg.left - CAMERA_X * 0.5, bg.top - CAMERA_Y * 0.5))
 
@@ -233,11 +315,16 @@ def draw():
         red_overlay.fill((255, 0, 0, 0))
         screen.surface.blit(red_overlay, (0, 0))
     
-
-    
-
+    map.draw()
+    for i in range(current_layer):
+        pygame.draw.line(screen.surface, "black",
+                     (path[i][0]+mapdeviationx,path[i][1]-3200+250*max(0,current_layer)+mapdeviation), (path[i + 1][0]+mapdeviationx,path[i + 1][1]-3200+250*max(0,current_layer)+mapdeviation), 5)
+    for position in drawn_positions:
+        screen.blit(position.image,( position.left+mapdeviationx , position.top -3200 +250 * max(0,current_layer)+mapdeviation))
+map1()
 def update():
-    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y, ATTACKCOOLDOWN_SANDWORMS
+    global map_on , mapdeviationx, current_layer 
+    global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y, ATTACKCOOLDOWN_SANDWORMS, map_on
     #walking
     mc.stand = True
     
@@ -385,7 +472,7 @@ def update():
                 bullets.remove(bullet)
     #neues level
     if not enemies:
-        launch()
+        map1()
 
     #enemy bullets
     for bullet in enemy_bullets[:]:
@@ -484,7 +571,18 @@ def update():
             if enemy.direction == -1:
                 enemy.image = fly_frames[round((enemy.timer%32)/8)]
             
-    
+
+    if not map_on:
+        map.x = -3000
+        mapdeviationx = -3000
+
+    global mapdeviation
+    if keyboard.w:
+        map.y += 10
+        mapdeviation += 10  
+    if keyboard.s:
+        map.y -= 10
+        mapdeviation -= 10 
                 
                 
 
