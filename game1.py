@@ -25,6 +25,7 @@ mapdeviationx=-3000
 rows = 14
 columns = 5
 
+
 #rotes overlay bei viel damage:
 red_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 alpha = 80
@@ -44,41 +45,56 @@ drawn_positions = []
 special_locations = random.sample(range(1,14), 5)
 location_shops = special_locations[:3]
 location_elites = special_locations[3:]
+finished_loc = []
 
 start = random.randint(0, columns-1)
+start1 = random.randint(0, columns-1)
+start2 = random.randint(0, columns-1)
 
 for row in range(rows):
-    path_information.append((start,row))
+    path_information.append(((start,start1,start2),row))
     start = random.randint(start-1, start +1)
+    start1 = random.randint(start1-1, start1+1)
+    start2 = random.randint(start2-1, start2+1)
+
     if start>4:
         start = 4
     if start<0:
         start = 0
+    if start1 >4:
+        start1 = 4
+    if start1<0:
+        start1 = 0
+    if start2 >4:
+        start2 = 4
+    if start2<0:
+        start2 = 0  
 
 for i in range(rows):
-    path.append((positions[path_information[i][0]],positions[path_information[i][1]+5]))
-path.append((700,250))
+    path.append(((positions[path_information[i][0][0]],positions[path_information[i][0][1]],positions[path_information[i][0][2]]),positions[path_information[i][1]+5]))
+path.append(((700,700,700),250))
 map = Actor('map.png')
 
-for positions in path:
-    if path.index(positions) in location_shops:
-        location = Actor('shop.png')
-        location.type = 'shop'
-        location.layer = path.index(positions)
-    elif path.index(positions) in location_elites:
-        location = Actor('elite.png')
-        location.type = 'elite'
-        location.layer = path.index(positions)
-    elif path.index(positions) == 14:
-        location = Actor('boss.png')
-        location.type = 'boss'
-        location.layer = path.index(positions)
-    else:
-        location = Actor('enemy.png')
-        location.type = 'enemy'
-        location.layer = path.index(positions)
-    location.pos = positions
-    drawn_positions.append(location)
+for position in path:
+    for different in path[path.index(position)][0]:
+        if path.index(position) in location_shops:
+            location = Actor('shop.png')
+            location.type = 'shop'
+            location.layer = path.index(position)
+        elif path.index(position) in location_elites:
+            location = Actor('elite.png')
+            location.type = 'elite'
+            location.layer = path.index(position)
+        elif path.index(position) == 14:
+            location = Actor('boss.png')
+            location.type = 'boss'
+            location.layer = path.index(position)
+        else:
+            location = Actor('enemy.png')
+            location.type = 'enemy'
+            location.layer = path.index(position)
+        location.pos = (different,position[1])
+        drawn_positions.append(location)
 
 
 
@@ -202,22 +218,23 @@ def sandwurm(anzahl):
 
 #feuerbälle schießen
 def on_mouse_down(pos):
-    global map_on
+    global map_on, finished_loc, positions
     if map_on == True:
-        for positions in drawn_positions:
-            hitbox = Rect(positions.left, positions.top -3200 +250*max(0,current_layer)+mapdeviation, positions.width, positions.height)
+        for position in drawn_positions:
+            hitbox = Rect(position.left+mapdeviationx, position.top -3200 +250*max(0,current_layer)+mapdeviation, position.width, position.height)
             
             if hitbox.collidepoint(pos):
-                print("geklickt:", positions.type, positions.layer)
-                if positions.type == 'shop'and positions.layer == current_layer:
+                print("geklickt:", position.type, position.layer)
+                if position.type == 'shop'and position.layer == current_layer :
                     launch('shop')
-                elif positions.type == 'elite'and positions.layer == current_layer :
+                elif position.type == 'elite'and position.layer == current_layer :
                     launch('elite')
-                elif positions.type == 'enemy'and positions.layer == current_layer:
+                elif position.type == 'enemy'and position.layer == current_layer:
                     launch('enemy')
-                elif positions.type == 'boss' and positions.layer == current_layer:
+                elif position.type == 'boss' and position.layer == current_layer:
                     launch('boss')
                 map_on = False
+                finished_loc.append(position.pos)
                 return
                 
     else:
@@ -267,7 +284,7 @@ def camera(pos):
     return (x - CAMERA_X, y - CAMERA_Y)
 
 def draw():
-    global map_on , mapdeviationx, current_layer 
+    global map_on , mapdeviationx, current_layer , finished_loc
  # Hintergrund
     screen.blit(bg.image,(bg.left - CAMERA_X * 0.5, bg.top - CAMERA_Y * 0.5))
 
@@ -316,9 +333,25 @@ def draw():
         screen.surface.blit(red_overlay, (0, 0))
     
     map.draw()
-    for i in range(current_layer):
+    for i in range(14):
         pygame.draw.line(screen.surface, "black",
-                     (path[i][0]+mapdeviationx,path[i][1]-3200+250*max(0,current_layer)+mapdeviation), (path[i + 1][0]+mapdeviationx,path[i + 1][1]-3200+250*max(0,current_layer)+mapdeviation), 5)
+                     (path[i][0][0]+mapdeviationx,path[i][1]-3200+250*max(0,current_layer)+mapdeviation), (path[i + 1][0][0]+mapdeviationx,path[i + 1][1]-3200+250*max(0,current_layer)+mapdeviation), 3)
+    
+   
+    for i in range(14):
+        pygame.draw.line(screen.surface, "black",
+                     (path[i][0][1]+mapdeviationx,path[i][1]-3200+250*max(0,current_layer)+mapdeviation), (path[i + 1][0][1]+mapdeviationx,path[i + 1][1]-3200+250*max(0,current_layer)+mapdeviation), 3)
+
+    
+    for i in range(14):
+        pygame.draw.line(screen.surface, "black",
+                     (path[i][0][2]+mapdeviationx,path[i][1]-3200+250*max(0,current_layer)+mapdeviation), (path[i + 1][0][2]+mapdeviationx,path[i + 1][1]-3200+250*max(0,current_layer)+mapdeviation), 3)
+
+    for locs in finished_loc:
+         pygame.draw.line(screen.surface, "black",
+                     (locs[0]+mapdeviationx,locs[1]-3200+250*max(0,current_layer)+mapdeviation), (finished_loc[min(finished_loc.index(locs)+1,len(finished_loc)-1)][0]+mapdeviationx,finished_loc[min(finished_loc.index(locs)+1,len(finished_loc)-1)][1]+mapdeviationx-3200+250*max(0,current_layer)+mapdeviation), 15)
+
+
     for position in drawn_positions:
         screen.blit(position.image,( position.left+mapdeviationx , position.top -3200 +250 * max(0,current_layer)+mapdeviation))
 map1()
