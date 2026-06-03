@@ -26,6 +26,8 @@ rows = 14
 columns = 5
 current_position = None
 tree_alive = False
+boss_alive = False
+angle = 0
 
 #rotes overlay bei viel damage:
 red_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -47,6 +49,8 @@ special_locations = random.sample(range(1,14), 7)
 location_shops = special_locations[:3]
 location_elites = special_locations[3:]
 finished_loc = []
+
+leafs = []
 
 start = random.randint(0, columns-1)
 start1 = random.randint(0, columns-1)
@@ -148,7 +152,16 @@ def tree():
     tree_alive = True
     enemies.append(tree)
 
-
+def boss():
+    global boss_alive
+    boss = Actor('boss1.png')
+    boss.type = 'boss'
+    boss.hp = 1000
+    boss.pos = (1450, 300)
+    boss.bottom = 700
+    boss.damage = False
+    boss_alive = True
+    enemies.append(boss)
 
 #fire_bullet
 bullets = []
@@ -212,20 +225,31 @@ def launch(type):
         platform_draw = platformlist(platforminformation())
         current_layer += 1
         tree()
+    if type == 'boss':
+        platform_draw = []
+        platform_draw.append(Actor('platform0.png',(400,300)))
+        platform_draw.append(Actor('platform0.png',(2300,300)))
+        current_layer += 1
+        boss()
     
-    
-    
+def leaf1(anzahl):
+    global leafs
+    for i in range(anzahl):
+        leaf = Actor ('leaf.png')
+        leaf.angle = i
+        leaf.pos = ( 1000,500)
+        leafs.append(leaf)
 
 def fly(anzahl):
     for i in range(anzahl):
         fly = Actor('fly_left0')
         fly.type = 'fly'
-        fly.pos = 1500,500
+        fly.pos = (random.randint(1000,2000),random.randint(400,500))
         fly.hp = 10
         fly.speed =4
         fly.direction = 1
         fly.timer = random.randint(0,500) #timer
-        fly.angle = random.uniform(0,360)
+        fly.angle = random.uniform(0,720)
         fly.damage  = False
         enemies.append(fly)
 
@@ -351,12 +375,11 @@ def camera(pos):
     return (x - CAMERA_X, y - CAMERA_Y)
 
 def draw():
-    global map_on , mapdeviationx, current_layer , finished_loc, tree_alive
+    global map_on , mapdeviationx, current_layer , finished_loc, tree_alive, boss_alive, leafs
  # Hintergrund
     screen.blit(bg.image,(bg.left - CAMERA_X * 0.5, bg.top - CAMERA_Y * 0.5))
 
-    # Boden
-    screen.blit(ground.image,camera(ground.topleft))
+    
 
     # Plattformen
     for platform in platform_draw:
@@ -365,7 +388,8 @@ def draw():
     #gegner
     for enemy in enemies:
         screen.blit(enemy.image, camera(enemy.topleft))
-
+    # Boden
+    screen.blit(ground.image,camera(ground.topleft))
     # Bullets
     for bullet in bullets:
         screen.blit(bullet.image,camera(bullet.topleft))
@@ -373,7 +397,8 @@ def draw():
     # Spieler
     screen.blit(mc.image, camera(mc.topleft))  
 
-
+    for leaf in leafs:
+        screen.blit(leaf.image,camera(leaf.topleft))
     
     # Explosionen
     for explotion in explotions:
@@ -425,7 +450,7 @@ def draw():
         screen.blit(position.image,( position.left+mapdeviationx , position.top -3200 +250 * max(0,current_layer)+mapdeviation))
 map1()
 def update():
-    global map_on , mapdeviationx, current_layer , tree_alive
+    global map_on , mapdeviationx, current_layer , tree_alive, leafs, angle
     global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y, ATTACKCOOLDOWN_SANDWORMS, map_on
     #walking
     mc.stand = True
@@ -557,6 +582,15 @@ def update():
                 enemy.direction = 1
             else:
                 enemy.direction = -1
+    
+    for leaf in leafs:
+        mc.hitbox = Rect(mc.left + 100, mc.top + 141, mc.width - 200, mc.height - 30)
+        leaf.angle += 0.01
+        angle += 0.0005
+        leaf.pos = ((1500+400*math.sin(angle)) +800 * math.cos(leaf.angle),350 +150* math.sin(leaf.angle))
+        if leaf.colliderect(mc.hitbox):
+            mc.hp -= 0.5
+            mc.damage = True
     #bullet travel
     for bullet in bullets:
             bullet.x += bullet.velocity.x
@@ -582,8 +616,17 @@ def update():
         if len(enemies) == 1 :
             sandwurm(random.randint(max(2,current_layer-7),max(1,current_layer*2)))
             fly(random.randint(max(2,current_layer-7),max(0,current_layer*2)))
-
-
+    global boss_alive
+    if boss_alive == True:
+        if enemies[0].hp < 500:
+            enemies[0].image = 'boss2.png'
+            if leafs == []:
+                leaf1(20)
+        if enemies[0].type != 'boss':
+            boss_alive = False
+            leafs= []
+        if len(enemies) < 3 :
+            fly(random.randint(4,12))
     #enemy bullets
     for bullet in enemy_bullets[:]:
         bullet.x += bullet.velocity.x
@@ -643,7 +686,7 @@ def update():
         bullet.hitbox = Rect(bullet.left+10, bullet.top+10, bullet.width-10, bullet.height-10)
         if bullet.image == 'enemy_bullet.png':
             if bullet.hitbox.colliderect(mc.hitbox):
-                mc.hp -= 2
+                mc.hp -= 5
                 mc.damage = True
                 enemy_bullets.remove(bullet)
 
