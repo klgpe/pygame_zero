@@ -4,6 +4,8 @@ import pygame
 import math
 from pygame import Rect
 from pygame.math import Vector2
+import os
+import sys
 
 WIDTH = 1398
 HEIGHT = 766
@@ -30,6 +32,7 @@ boss_alive = False
 angle = 0
 gold = 0
 reward_screen = False
+game_over = False
 
 #rotes overlay bei viel damage:
 red_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -313,7 +316,7 @@ def on_mouse_down(pos):
                             allowed = True
                             break
 
-                if not allowed:
+                if not allowed and current_layer < 14:
                     return
                 print("geklickt:", position.type, position.layer)
                 if position.type == 'shop'and position.layer == current_layer :
@@ -322,7 +325,7 @@ def on_mouse_down(pos):
                     launch('elite')
                 elif position.type == 'enemy'and position.layer == current_layer:
                     launch('enemy')
-                elif position.type == 'boss' and position.layer == current_layer:
+                elif position.type == 'boss' and position.layer == current_layer :
                     launch('boss')
                 map_on = False
                 finished_loc.append(position.pos)
@@ -367,7 +370,7 @@ def map1():
     global map_on , mapdeviationx, current_layer   
     
     mapdeviationx = 0
-    map.bottom = HEIGHT +250*max(0,current_layer)
+    map.bottom = HEIGHT +150*max(0,current_layer)
     map.x = WIDTH/2
     map_on = True
 
@@ -512,17 +515,70 @@ def draw():
             color="black"
         )
 
+    if game_over:
 
+        # dunkler Hintergrund
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 220))
+        screen.surface.blit(overlay, (0, 0))
+
+        # roter Rahmen
+        pygame.draw.rect(
+            screen.surface,
+            (150, 0, 0),
+            Rect((WIDTH//2 - 300, HEIGHT//2 - 150), (600, 300))
+        )
+
+        pygame.draw.rect(
+            screen.surface,
+            (255, 255, 255),
+            Rect((WIDTH//2 - 300, HEIGHT//2 - 150), (600, 300)),
+            5
+        )
+
+        screen.draw.text(
+            "GAME OVER",
+            center=(WIDTH//2, HEIGHT//2 - 50),
+            fontsize=40,
+            fontname="pixel",
+            color="red",
+            owidth=2,
+            ocolor="white"
+        )
+
+        screen.draw.text(
+            f"Erreichte Ebene: {current_layer}",
+            center=(WIDTH//2, HEIGHT//2 + 20),
+            fontsize=30,
+            fontname="pixel",
+            color="white"
+        )
+
+        screen.draw.text(
+            "ESC - Neustart",
+            center=(WIDTH//2, HEIGHT//2 + 90),
+            fontsize=30,
+            fontname="pixel",
+            color="white"
+        )
 map1()
 def update():
     global map_on , mapdeviationx, current_layer , tree_alive, leafs, angle
     global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y, ATTACKCOOLDOWN_SANDWORMS, map_on
     global reward_screen
 
+    global game_over
+
+    if mc.hp <= 0:
+        game_over = True
     if reward_screen:
         if keyboard.escape:
             reward_screen = False
             map1()
+        return
+    if game_over:
+        if keyboard.escape:
+            os.execl(sys.executable, sys.executable, *sys.argv)
         return
     #walking
     mc.stand = True
@@ -615,7 +671,7 @@ def update():
                 enemy.timer = 0
             enemy.hitbox = Rect(enemy.left + 20,enemy.top + 50,enemy.width - 40,enemy.height)
             if enemy.hitbox.colliderect(mc.hitbox) and enemy.timer >= 20 and mc.damage == False:
-                mc.hp -= 1
+                mc.hp -= 0.5
                 mc.damage = True
 
         if enemy.type == 'fly':
@@ -805,7 +861,7 @@ def update():
     if keyboard.w:
         map.y += 10
         mapdeviation += 10  
-    if keyboard.s:
+    if keyboard.s and map.bottom -10 > HEIGHT:
         map.y -= 10
         mapdeviation -= 10 
                 
