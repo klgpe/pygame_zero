@@ -25,6 +25,7 @@ mapdeviationx=-3000
 rows = 14
 columns = 5
 current_position = None
+tree_alive = False
 
 #rotes overlay bei viel damage:
 red_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -77,11 +78,11 @@ map = Actor('map.png')
 
 for position in path:
     for different in path[path.index(position)][0]:
-        if path.index(position) in location_shops and random.randint(1,2) == 1:
+        if path.index(position) in location_shops and random.randint(1,2) == 1 and (not drawn_positions or (different,position[1]) != drawn_positions[max(len(drawn_positions)-1,0)].pos and (different,position[1]) != drawn_positions[max(len(drawn_positions)-2,len(drawn_positions)-1,0)].pos):
             location = Actor('shop.png')
             location.type = 'shop'
             location.layer = path.index(position)
-        elif path.index(position) in location_elites and random.randint(1,3) == 1:
+        elif path.index(position) in location_elites and random.randint(1,2) == 1 and (not drawn_positions or (different,position[1]) != drawn_positions[max(len(drawn_positions)-1,0)].pos and (different,position[1]) != drawn_positions[max(len(drawn_positions)-2,len(drawn_positions)-1,0)].pos):
             location = Actor('elite.png')
             location.type = 'elite'
             location.layer = path.index(position)
@@ -89,7 +90,7 @@ for position in path:
             location = Actor('boss.png')
             location.type = 'boss'
             location.layer = path.index(position)
-        elif not drawn_positions or (different,position[1]) != drawn_positions[max(len(drawn_positions)-1,0)].pos:
+        elif not drawn_positions or ((different,position[1]) != drawn_positions[max(len(drawn_positions)-1,0)].pos and (different,position[1]) != drawn_positions[max(len(drawn_positions)-2,len(drawn_positions)-1,0)].pos):
             location = Actor('enemy.png')
             location.type = 'enemy'
             location.layer = path.index(position)
@@ -104,6 +105,7 @@ platforms = [Actor("platform0"),Actor("platform1"),Actor("platform2"),Actor("pla
 platform_pos_topleft = [(700,270),(900, -50), (1550,200),( 1900, 50),(300,220),(500, -10), (1500, -100),(1100, 300),(2000,220)]
 platform_draw = []
 
+tree_images = ["tree0","tree1","tree2","tree3"]
 #animationen
 walk_frames = ["mage_walk1","mage_walk2",'mage_walk5',"mage_walk4", "mage_walk_reverse1","mage_walk_reverse2",'mage_walk_reverse5',"mage_walk_reverse4"]
 idle_frames = ['mage_idle0','mage_idle1','mage_idle2','mage_idle3','mage_idle4','mage_idle_reverse0','mage_idle_reverse1','mage_idle_reverse2','mage_idle_reverse3','mage_idle_reverse4']
@@ -111,6 +113,7 @@ fire_ball_frames = ['fireball0','fireball1','fireball2']
 explotion_frames =['explosion0','explosion1','explosion2','explosion3','explosion4']
 sandwurm_frames = ['sandwurm_up0','sandwurm_up1','sandwurm_up2','sandwurm_up3','sandwurm_up4','sandwurm_up5','sandwurm_up6','sandwurm_down0','sandwurm_down1','sandwurm_down2','sandwurm_down3','sandwurm_down4','sandwurm_down5','sandwurm_dowm6']
 fly_frames =['fly_left0','fly_left1','fly_left2','fly_left3','fly_left4','fly_right0','fly_right1','fly_right2','fly_right3','fly_right4']
+
 
 FRAME_INDEX_WALK = 0
 FRAME_INDEX_IDLE = 0 
@@ -133,6 +136,18 @@ ground = Actor('untergrund.png', topleft=(0,00))
 mc = Actor('mage.png',midbottom=(704,623))
 mc.max_hp = 100
 mc.hp = 100
+
+def tree():
+    global tree_alive
+    tree = Actor('tree0.png')
+    tree.image = tree_images[random.randint(0,3)]
+    tree.type = 'tree'
+    tree.hp = 100 + 20*current_layer
+    tree.pos = (1450, 265)
+    tree.damage = False
+    tree_alive = True
+    enemies.append(tree)
+
 
 
 #fire_bullet
@@ -190,8 +205,13 @@ def launch(type):
         #startposition der platformen merken
         #sandwürmer spawnen
         current_layer += 1
-        sandwurm(random.randint(max(2,current_layer-7),max(1,current_layer+2)))
-        fly(random.randint(max(2,current_layer-7),max(0,current_layer+4)))
+        sandwurm(random.randint(max(2,current_layer-7),max(1,current_layer*2)))
+        fly(random.randint(max(2,current_layer-7),max(0,current_layer*2)))
+    if type == 'elite':
+        platform_draw = []
+        platform_draw = platformlist(platforminformation())
+        current_layer += 1
+        tree()
     
     
     
@@ -206,6 +226,7 @@ def fly(anzahl):
         fly.direction = 1
         fly.timer = random.randint(0,500) #timer
         fly.angle = random.uniform(0,360)
+        fly.damage  = False
         enemies.append(fly)
 
 
@@ -280,6 +301,7 @@ def on_mouse_down(pos):
                 map_on = False
                 finished_loc.append(position.pos)
                 current_position = position.pos
+                return
     
     else:
         bullet = Actor('fireball0.png')
@@ -317,6 +339,7 @@ def enemy_shoot(pos):
 
 def map1():
     global map_on , mapdeviationx, current_layer   
+    
     mapdeviationx = 0
     map.bottom = HEIGHT +250*max(0,current_layer)
     map.x = WIDTH/2
@@ -328,7 +351,7 @@ def camera(pos):
     return (x - CAMERA_X, y - CAMERA_Y)
 
 def draw():
-    global map_on , mapdeviationx, current_layer , finished_loc
+    global map_on , mapdeviationx, current_layer , finished_loc, tree_alive
  # Hintergrund
     screen.blit(bg.image,(bg.left - CAMERA_X * 0.5, bg.top - CAMERA_Y * 0.5))
 
@@ -339,6 +362,10 @@ def draw():
     for platform in platform_draw:
         screen.blit(platform.image,camera(platform.topleft))
 
+    #gegner
+    for enemy in enemies:
+        screen.blit(enemy.image, camera(enemy.topleft))
+
     # Bullets
     for bullet in bullets:
         screen.blit(bullet.image,camera(bullet.topleft))
@@ -346,9 +373,7 @@ def draw():
     # Spieler
     screen.blit(mc.image, camera(mc.topleft))  
 
-    #gegner
-    for enemy in enemies:
-        screen.blit(enemy.image, camera(enemy.topleft))
+
     
     # Explosionen
     for explotion in explotions:
@@ -400,7 +425,7 @@ def draw():
         screen.blit(position.image,( position.left+mapdeviationx , position.top -3200 +250 * max(0,current_layer)+mapdeviation))
 map1()
 def update():
-    global map_on , mapdeviationx, current_layer 
+    global map_on , mapdeviationx, current_layer , tree_alive
     global FRAME_INDEX_WALK, WALK_ANIMATION,SPEED, FRAME_INDEX_IDLE, IDLE_ANIMATION, vy, GRAVITY, MAX_FALL_SPEED, JUMP_SPEED, DIRECTION, CAMERA_X, CAMERA_Y, ATTACKCOOLDOWN_SANDWORMS, map_on
     #walking
     mc.stand = True
@@ -550,6 +575,14 @@ def update():
     #neues level
     if not enemies:
         map1()
+    if tree_alive == True:
+        if enemies[0].type != 'tree':
+            tree_alive = False
+
+        if len(enemies) == 1 :
+            sandwurm(random.randint(max(2,current_layer-7),max(1,current_layer*2)))
+            fly(random.randint(max(2,current_layer-7),max(0,current_layer*2)))
+
 
     #enemy bullets
     for bullet in enemy_bullets[:]:
