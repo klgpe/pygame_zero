@@ -24,7 +24,7 @@ mapdeviation=0
 mapdeviationx=-3000
 rows = 14
 columns = 5
-
+current_position = None
 
 #rotes overlay bei viel damage:
 red_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -42,7 +42,7 @@ positions =[250,500,750,1000,1250,1875*2,1750*2,1625*2,1500*2,1375*2,1250*2,1125
 path = []
 path_information = []
 drawn_positions = []
-special_locations = random.sample(range(1,14), 5)
+special_locations = random.sample(range(1,14), 7)
 location_shops = special_locations[:3]
 location_elites = special_locations[3:]
 finished_loc = []
@@ -77,11 +77,11 @@ map = Actor('map.png')
 
 for position in path:
     for different in path[path.index(position)][0]:
-        if path.index(position) in location_shops:
+        if path.index(position) in location_shops and random.randint(1,2) == 1:
             location = Actor('shop.png')
             location.type = 'shop'
             location.layer = path.index(position)
-        elif path.index(position) in location_elites:
+        elif path.index(position) in location_elites and random.randint(1,3) == 1:
             location = Actor('elite.png')
             location.type = 'elite'
             location.layer = path.index(position)
@@ -89,7 +89,7 @@ for position in path:
             location = Actor('boss.png')
             location.type = 'boss'
             location.layer = path.index(position)
-        else:
+        elif not drawn_positions or (different,position[1]) != drawn_positions[max(len(drawn_positions)-1,0)].pos:
             location = Actor('enemy.png')
             location.type = 'enemy'
             location.layer = path.index(position)
@@ -164,6 +164,22 @@ def platformlist(list):
     
     return platform_draw_setup 
 
+connections = []
+
+
+for row in range(rows-1):
+
+    current = path_information[row]
+    nxt = path_information[row+1]
+
+    for i in range(3):
+        connections.append(
+            (
+                (current[0][i], current[1]),
+                (nxt[0][i], nxt[1])
+            )
+        )
+
 def launch(type):
     
     global platform_draw, enemies, current_layer
@@ -218,12 +234,12 @@ def sandwurm(anzahl):
 
 #feuerbälle schießen
 def on_mouse_down(pos):
-    global map_on, finished_loc, positions
+    global map_on, finished_loc, positions, current_position
     if map_on == True:
         for position in drawn_positions:
             hitbox = Rect(position.left+mapdeviationx, position.top -3200 +250*max(0,current_layer)+mapdeviation, position.width, position.height)
             
-            if hitbox.collidepoint(pos):
+            if hitbox.collidepoint(pos) and current_position is None:
                 print("geklickt:", position.type, position.layer)
                 if position.type == 'shop'and position.layer == current_layer :
                     launch('shop')
@@ -235,8 +251,36 @@ def on_mouse_down(pos):
                     launch('boss')
                 map_on = False
                 finished_loc.append(position.pos)
+                current_position = position.pos
                 return
-                
+            elif hitbox.collidepoint(pos) and current_position is not None:
+                allowed = False
+
+                for start, end in connections:
+
+                    start_pos = (positions[start[0]],positions[start[1] + 5])
+                    end_pos = (positions[end[0]],positions[end[1] + 5])
+
+                    if start_pos == current_position:
+                        if (position.x, position.y) == end_pos:
+                            allowed = True
+                            break
+
+                if not allowed:
+                    return
+                print("geklickt:", position.type, position.layer)
+                if position.type == 'shop'and position.layer == current_layer :
+                    launch('shop')
+                elif position.type == 'elite'and position.layer == current_layer :
+                    launch('elite')
+                elif position.type == 'enemy'and position.layer == current_layer:
+                    launch('enemy')
+                elif position.type == 'boss' and position.layer == current_layer:
+                    launch('boss')
+                map_on = False
+                finished_loc.append(position.pos)
+                current_position = position.pos
+    
     else:
         bullet = Actor('fireball0.png')
         bullet.pos = (mc.x+50,mc.y+30)
